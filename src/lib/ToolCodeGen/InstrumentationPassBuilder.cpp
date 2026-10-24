@@ -734,7 +734,7 @@ void AMDGPUCodeGenPassBuilder::addIRPasses(PassManagerWrapper &PMW) const {
     addModulePass(AMDGPULowerExecSyncPass(), PMW);
 
   if (EnableSwLowerLDS())
-    addModulePass(AMDGPUSwLowerLDSPass(TM), PMW);
+    addModulePass(AMDGPUSwLowerLDSPass(), PMW);
 
   // Runs before PromoteAlloca so the latter can account for function uses
   if (EnableLowerModuleLDS())
@@ -846,7 +846,7 @@ void AMDGPUCodeGenPassBuilder::addPreISel(PassManagerWrapper &PMW) const {
   // control flow modifications.
   addFunctionPass(AMDGPURewriteUndefForPHIPass(), PMW);
 
-  if (!getCGPassBuilderOption().EnableGlobalISelOption ||
+  if (getCGPassBuilderOption().EnableGlobalISelOption != cl::boolOrDefault::BOU_TRUE ||
       !isGlobalISelAbortEnabled() || !NewRegBankSelect())
     addFunctionPass(LCSSAPass(), PMW);
 

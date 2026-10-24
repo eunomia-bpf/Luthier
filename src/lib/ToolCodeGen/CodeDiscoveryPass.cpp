@@ -151,7 +151,7 @@ parseKDRsrc1(const llvm::amdhsa::kernel_descriptor_t &KD,
     break;
   default:
     return LUTHIER_MAKE_GENERIC_ERROR("Invalid FP 32 denorm field " +
-                                      llvm::to_string(Float32Denorm) + ".");
+                                      std::to_string(Float32Denorm) + ".");
   }
   F.addFnAttr("denormal-fp-math-f32", Denorm32Val);
   /// Lift FLOAT_DENORM_MODE_16_64 field
@@ -174,7 +174,7 @@ parseKDRsrc1(const llvm::amdhsa::kernel_descriptor_t &KD,
     break;
   default:
     return LUTHIER_MAKE_GENERIC_ERROR("Invalid FP 16/64 denorm field " +
-                                      llvm::to_string(Float1664Denorm) + ".");
+                                      std::to_string(Float1664Denorm) + ".");
   }
   F.addFnAttr("denormal-fp-math", Denorm1664Val);
 
@@ -862,7 +862,7 @@ initKernelEntryPointFunction(const llvm::amdhsa::kernel_descriptor_t &KD,
   }
 
   F->addFnAttr("amdgpu-lds-size",
-               llvm::to_string(KDOnHost.group_segment_fixed_size));
+               std::to_string(KDOnHost.group_segment_fixed_size));
 
   /// Lift Rsrc1-Rsrc2; Rsrc3 is mostly automatically computed so we don't
   /// lift it

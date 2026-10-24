@@ -386,7 +386,7 @@ llvm::Register TargetModuleScavenger::scavengeRegisterBackwards(
   const llvm::MachineBasicBlock &MBBR = *To->getParent();
   const llvm::MachineFunction &MF = *MBBR.getParent();
   llvm::ArrayRef<llvm::MCPhysReg> AllocationOrder =
-      RC.getRawAllocationOrder(MF);
+      TRI->getRawAllocationOrder(RC, MF);
   std::pair<llvm::MCPhysReg, llvm::MachineBasicBlock::iterator> P =
       findSurvivorBackwards(*MRI, ReservedRegs, std::prev(MBBI), To,
                             LiveUnits, AllocationOrder, RestoreAfter);

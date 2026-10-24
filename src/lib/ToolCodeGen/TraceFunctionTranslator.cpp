@@ -218,20 +218,12 @@ public:
                         llvm::Type *DestTy) const override {
     return Base.FoldCast(Op, V, DestTy);
   }
-  llvm::Value *FoldUnaryIntrinsic(
-      llvm::Intrinsic::ID ID, llvm::Value *Op, llvm::Type *Ty,
-      llvm::FastMathFlags FMF = llvm::FastMathFlags()) const override {
-    if (llvm::Value *V = tryFoldAMDGPUIntrinsic(ID, {Op}))
+  llvm::Value *FoldIntrinsic(
+      llvm::Intrinsic::ID ID, llvm::ArrayRef<llvm::Value *> Ops, llvm::Type *Ty,
+      llvm::FastMathFlags FMF = {}, llvm::Function *CtxF = nullptr) const override {
+    if (llvm::Value *V = tryFoldAMDGPUIntrinsic(ID, Ops))
       return V;
-    return Base.FoldUnaryIntrinsic(ID, Op, Ty, FMF);
-  }
-  llvm::Value *FoldBinaryIntrinsic(
-      llvm::Intrinsic::ID ID, llvm::Value *LHS, llvm::Value *RHS,
-      llvm::Type *Ty,
-      llvm::FastMathFlags FMF = llvm::FastMathFlags()) const override {
-    if (llvm::Value *V = tryFoldAMDGPUIntrinsic(ID, {LHS, RHS}))
-      return V;
-    return Base.FoldBinaryIntrinsic(ID, LHS, RHS, Ty, FMF);
+    return Base.FoldIntrinsic(ID, Ops, Ty, FMF, CtxF);
   }
   llvm::Value *CreatePointerCast(llvm::Constant *C,
                                  llvm::Type *DestTy) const override {
@@ -2803,7 +2795,7 @@ bool TraceFunctionTranslator::shouldEmitGPRIndexAccess(
     const llvm::MachineInstr &MI, llvm::MCRegister Reg) const {
   if (!ST.hasVGPRIndexMode())
     return false;
-  if (!llvm::SIInstrInfo::isVALU(MI))
+  if (!llvm::SIInstrInfo::isVALU(MI, /*AllowLDSDMA=*/false))
     return false;
   /// Limit Phase B's first cut to 32-bit single-VGPR operands. For
   /// wider VGPR operands (e.g. v_*_b64 reading a pair) the indexed

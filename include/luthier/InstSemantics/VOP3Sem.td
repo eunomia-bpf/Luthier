@@ -4585,8 +4585,8 @@ foreach inst = [
 foreach inst = [
     V_CVT_F32_FP8_e64,
     V_CVT_F32_BF8_e64,
-    V_CVT_F32_FP8_OP_SEL_e64,
-    V_CVT_F32_BF8_OP_SEL_e64,
+    V_CVT_F32_FP8_op_sel_e64,
+    V_CVT_F32_BF8_op_sel_e64,
     V_CVT_PK_F32_FP8_e64,
     V_CVT_PK_F32_BF8_e64,
     V_CVT_PK_FP8_F32_e64,
@@ -9945,9 +9945,9 @@ foreach fpFmt = ["FP8", "BF8"] in {
   }
 }
 foreach fpFmt = ["FP8", "BF8"] in {
-  foreach inst = [!cast<InstSI>("V_CVT_PK_"#fpFmt#"_F16_gfx1250_e64"),
-                  !cast<InstSI>("V_CVT_PK_"#fpFmt#"_F16_gfx1250_t16_e64"),
-                  !cast<InstSI>("V_CVT_PK_"#fpFmt#"_F16_gfx1250_fake16_e64")] in {
+  foreach inst = [!cast<InstSI>("V_CVT_PK_"#fpFmt#"_F16_e64"),
+                  !cast<InstSI>("V_CVT_PK_"#fpFmt#"_F16_t16_e64"),
+                  !cast<InstSI>("V_CVT_PK_"#fpFmt#"_F16_fake16_e64")] in {
     def inst#_sem : InstSISemantic<inst> {
       let Semantic = [(SetNamedOperand $vdst,
         (LLVMIntrinsic si_llvm_i16_ty,

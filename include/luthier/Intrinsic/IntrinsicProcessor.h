@@ -40,7 +40,8 @@ class MachineInstr;
 
 class MachineOperand;
 
-class TargetRegisterClass;
+class MCRegisterClass;
+using TargetRegisterClass = MCRegisterClass;
 
 class Register;
 

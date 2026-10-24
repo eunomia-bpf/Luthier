@@ -16,6 +16,8 @@ find_package(hsa-runtime64 REQUIRED CONFIG)
 find_package(LLVM REQUIRED CONFIG)
 
 find_package(Clang REQUIRED CONFIG)
+# Clang may reload LLVMConfig; split definitions after both package lookups.
+separate_arguments(LLVM_DEFINITIONS NATIVE_COMMAND "${LLVM_DEFINITIONS}")
 
 if (${LUTHIER_ENABLE_SPIRV})
     include(FindLLVMSPIRVTranslator)

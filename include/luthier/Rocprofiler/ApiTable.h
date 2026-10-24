@@ -42,6 +42,11 @@
 #include <rocprofiler-sdk/registration.h>
 #include <rocprofiler-sdk/rocprofiler.h>
 #include <rocprofiler-sdk/version.h>
+#if ROCPROFILER_SDK_VERSION >= ROCPROFILER_SDK_COMPUTE_VERSION(1, 3, 0)
+#include <rocprofiler-sdk/experimental/spm.h>
+#else
+#include <rocprofiler-sdk/spm.h>
+#endif
 
 #define LUTHIER_ROCPROFILER_LIBRARY_FUNCTION_ENTRY(NAME)                       \
   template <> struct luthier::DynamicLibraryFunctionEntry<NAME> {              \

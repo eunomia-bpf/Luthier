@@ -2707,7 +2707,7 @@ def V_CVT_F32_BF8_e32_sem : InstSISemantic<V_CVT_F32_BF8_e32> {
       (LLVMIntrinsic si_llvm_float_ty, int_amdgcn_cvt_f32_bf8, [(GetNamedOperand $src0)]))
   ];
 }
-def V_CVT_F32_BF8_OP_SEL_e32_sem : InstSISemantic<V_CVT_F32_BF8_OP_SEL_e32> {
+def V_CVT_F32_BF8_op_sel_e32_sem : InstSISemantic<V_CVT_F32_BF8_op_sel_e32> {
   let Semantic = [
     (SetNamedOperand $vdst,
       (LLVMIntrinsic si_llvm_float_ty, int_amdgcn_cvt_f32_bf8, [(GetNamedOperand $src0)]))
@@ -2719,7 +2719,7 @@ def V_CVT_F32_FP8_e32_sem : InstSISemantic<V_CVT_F32_FP8_e32> {
       (LLVMIntrinsic si_llvm_float_ty, int_amdgcn_cvt_f32_fp8, [(GetNamedOperand $src0)]))
   ];
 }
-def V_CVT_F32_FP8_OP_SEL_e32_sem : InstSISemantic<V_CVT_F32_FP8_OP_SEL_e32> {
+def V_CVT_F32_FP8_op_sel_e32_sem : InstSISemantic<V_CVT_F32_FP8_op_sel_e32> {
   let Semantic = [
     (SetNamedOperand $vdst,
       (LLVMIntrinsic si_llvm_float_ty, int_amdgcn_cvt_f32_fp8, [(GetNamedOperand $src0)]))

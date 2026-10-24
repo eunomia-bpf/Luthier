@@ -55,6 +55,60 @@ private:
 
   inline static decltype(hsa_queue_create) *UnderlyingHsaQueueCreateFn{};
 
+#ifdef HSA_AMD_QUEUE_CREATE_DESC_VERSION
+  std::unique_ptr<rocprofiler::HsaApiTableWrapperInstaller<::AmdExtTable>>
+      AmdApiTableInterceptor;
+  inline static decltype(hsa_amd_queue_create) *UnderlyingAmdQueueCreateFn{};
+
+  // New HIP runtimes create compute queues through the descriptor API,
+  // bypassing hsa_queue_create. Preserve unsupported queues unchanged.
+  static hsa_status_t hsaAmdQueueCreateWrapper(
+      hsa_agent_t Agent, hsa_amd_queue_create_desc_t *Descs, uint32_t Count) {
+    if (!UnderlyingAmdQueueCreateFn)
+      return HSA_STATUS_ERROR_NOT_INITIALIZED;
+    auto Status = UnderlyingAmdQueueCreateFn(Agent, Descs, Count);
+    if (Status != HSA_STATUS_SUCCESS || !Descs)
+      return Status;
+    (void)Singleton<Derived>::withInstance([&](Derived &Self) {
+      auto &Trait = static_cast<PacketMonitorTrait<Derived> &>(Self);
+      const auto &Amd = Trait.AmdExtSnapshot.getTable();
+      const auto &Core = Trait.CoreApiSnapshot.getTable();
+      for (uint32_t I = 0; I != Count; ++I) {
+        auto &D = Descs[I];
+        if (!D.queue || D.engine_type != HSA_AMD_QUEUE_ENGINE_COMPUTE ||
+            D.version != HSA_AMD_QUEUE_CREATE_DESC_VERSION || D.flags != 0)
+          continue;
+        auto Registered = Amd.template callFunction<hsa_amd_queue_intercept_register>(
+            D.queue, interceptQueuePacketHandler, D.queue);
+        if (Registered != HSA_STATUS_ERROR_INVALID_QUEUE)
+          continue;
+        hsa_queue_t *Replacement = nullptr;
+        auto RC = Amd.template callFunction<hsa_amd_queue_intercept_create>(
+            Agent, D.queue_size_bytes / sizeof(hsa::AqlPacket),
+            D.engine.compute.type, D.callback, D.callback_data,
+            D.engine.compute.private_segment_size, UINT32_MAX, &Replacement);
+        if (RC != HSA_STATUS_SUCCESS)
+          continue;
+        RC = Amd.template callFunction<hsa_amd_queue_intercept_register>(
+            Replacement, interceptQueuePacketHandler, Replacement);
+        if (RC == HSA_STATUS_SUCCESS)
+          RC = Amd.template callFunction<hsa_amd_queue_set_priority>(Replacement, D.priority);
+        if (RC == HSA_STATUS_SUCCESS && D.engine.compute.cu_mask_count)
+          RC = Amd.template callFunction<hsa_amd_queue_cu_set_mask>(
+              Replacement, D.engine.compute.cu_mask_count, D.engine.compute.cu_mask);
+        if (RC == HSA_STATUS_SUCCESS)
+          RC = Core.template callFunction<hsa_queue_destroy>(D.queue);
+        if (RC != HSA_STATUS_SUCCESS) {
+          (void)Core.template callFunction<hsa_queue_destroy>(Replacement);
+          continue;
+        }
+        D.queue = Replacement;
+      }
+    });
+    return Status;
+  }
+#endif
+
   static hsa_status_t
   hsaQueueCreateWrapper(hsa_agent_t Agent, uint32_t Size,
                         hsa_queue_type32_t Type,
@@ -143,6 +197,15 @@ public:
         std::make_tuple(&::CoreApiTable::hsa_queue_create_fn,
                         std::ref(UnderlyingHsaQueueCreateFn),
                         hsaQueueCreateWrapper));
+#ifdef HSA_AMD_QUEUE_CREATE_DESC_VERSION
+    if (!Err)
+      AmdApiTableInterceptor = std::make_unique<
+          rocprofiler::HsaApiTableWrapperInstaller<::AmdExtTable>>(
+          RocprofilerLib, Err,
+          std::make_tuple(&::AmdExtTable::hsa_amd_queue_create_fn,
+                          std::ref(UnderlyingAmdQueueCreateFn),
+                          hsaAmdQueueCreateWrapper));
+#endif
   }
 
   /// Wrappers are intentionally NOT uninstalled. See file header.

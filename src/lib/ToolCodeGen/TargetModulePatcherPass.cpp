@@ -233,8 +233,8 @@ template struct PrivateAccessor<SIMFI_NumUserSGPRsTag,
 using FAM = llvm::FunctionAnalysisManager;
 using FAMResultListT =
     std::list<std::pair<llvm::AnalysisKey *,
-                        std::unique_ptr<llvm::detail::AnalysisResultConcept<
-                            llvm::Function, FAM::Invalidator>>>>;
+                        llvm::detail::AnalysisResultConcept<
+                            llvm::Function, FAM::Invalidator>::unique_ptr>>;
 using FAMResultListMapT = llvm::DenseMap<llvm::Function *, FAMResultListT>;
 using FAMResultMapT =
     llvm::DenseMap<std::pair<llvm::AnalysisKey *, llvm::Function *>,
@@ -3430,8 +3430,9 @@ llvm::Error moveIModuleIntoTarget(llvm::Module &IModule,
     LLVM_DEBUG(luthier::dbgs()
                << "[TargetModulePatcherPass]   append module inline asm ("
                << IModule.getModuleInlineAsm().size() << " chars)\n");
-    TargetModule.appendModuleInlineAsm(IModule.getModuleInlineAsm());
-    IModule.setModuleInlineAsm("");
+    for (const auto &Fragment : IModule.getModuleInlineAsm())
+      TargetModule.appendModuleInlineAsm(Fragment);
+    IModule.setModuleInlineAsm({});
   }
 
   // Pass 2 — re-home each moved definition's MIR.

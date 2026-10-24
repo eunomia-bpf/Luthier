@@ -226,9 +226,8 @@ ToolDeviceCodeParser::findCompatibleSlice(
     return LUTHIER_MAKE_GENERIC_ERROR(
         "createMCSubtargetInfo returned nullptr for the requested ISA.");
 
-  namespace IsaInfo = llvm::AMDGPU::IsaInfo;
-  IsaInfo::AMDGPUTargetID ReqID(*ReqSTI);
-  ReqID.setTargetIDFromFeaturesString(ReqFS);
+  namespace IsaInfo = llvm::AMDGPU;
+  auto ReqID = llvm::AMDGPU::createAMDGPUTargetID(*ReqSTI, ReqFS);
 
   /// lambda used to check for compatibility between the ISAs regarding xnack
   /// and sramecc features
@@ -243,7 +242,7 @@ ToolDeviceCodeParser::findCompatibleSlice(
 
   /// Features that must exactly match
   static constexpr llvm::StringLiteral BinaryFeatures[] = {
-      "+wavefrontsize64", "+cumode", "+tgsplit"};
+      "+wavefrontsize64", "+cumode"};
 
   for (const SliceInfo &S : Slices) {
     if (S.TT != T || S.CPU != CPU)
@@ -255,8 +254,7 @@ ToolDeviceCodeParser::findCompatibleSlice(
     if (!SliceSTI)
       continue;
 
-    IsaInfo::AMDGPUTargetID SliceID(*SliceSTI);
-    SliceID.setTargetIDFromFeaturesString(SliceFS);
+    auto SliceID = llvm::AMDGPU::createAMDGPUTargetID(*SliceSTI, SliceFS);
     if (!featureCompat(ReqID.getXnackSetting(), SliceID.getXnackSetting()))
       continue;
     if (!featureCompat(ReqID.getSramEccSetting(), SliceID.getSramEccSetting()))

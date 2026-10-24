@@ -42,7 +42,8 @@ class MachineFunction;
 class MachineInstr;
 class MachineRegisterInfo;
 class TargetInstrInfo;
-class TargetRegisterClass;
+class MCRegisterClass;
+using TargetRegisterClass = MCRegisterClass;
 class TargetRegisterInfo;
 } // namespace llvm
 

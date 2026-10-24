@@ -204,7 +204,9 @@ static llvm::Error cloneMemOperands(llvm::MachineInstr &DstMI,
 
     llvm::MachineMemOperand *NewMMO = DstMF.getMachineMemOperand(
         NewPtrInfo, OldMMO->getFlags(), OldMMO->getMemoryType(),
-        OldMMO->getBaseAlign(), OldMMO->getAAInfo(), OldMMO->getRanges(),
+        OldMMO->getBaseAlign(),
+        llvm::MMOMetadata(OldMMO->getAAInfo(), OldMMO->getRanges(),
+                          OldMMO->getMemCacheHint()),
         OldMMO->getSyncScopeID(), OldMMO->getSuccessOrdering(),
         OldMMO->getFailureOrdering());
     NewMMOs.push_back(NewMMO);

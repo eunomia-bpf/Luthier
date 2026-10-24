@@ -1,4 +1,10 @@
-add_library(LuthierTooling SHARED
+option(LUTHIER_BUILD_SHARED_TOOLING "Build LuthierTooling as a shared library" ON)
+if(LUTHIER_BUILD_SHARED_TOOLING)
+    set(_LUTHIER_TOOLING_TYPE SHARED)
+else()
+    set(_LUTHIER_TOOLING_TYPE STATIC)
+endif()
+add_library(LuthierTooling ${_LUTHIER_TOOLING_TYPE}
         DevicePrintf.cpp
         HiddenArgBuffers.cpp
         HostcallHandler.cpp
