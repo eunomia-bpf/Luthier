@@ -400,9 +400,8 @@ InstrumentedKernelLoaderAndLauncher::overrideWithInstrumented(
   void *ExtPtr = *AllocOrErr;
   std::memset(ExtPtr, 0, KernargSize);
 
-  // Wire in the record-scoped buffers if either is present. Both were sized
-  // for a single-wave ctor/dtor dispatch; a many-wave instrumented kernel
-  // that shares them with a ctor/dtor could over-subscribe them. Hidden
+  // Wire in the record-scoped buffers if either is present. The hostcall
+  // buffer covers the agent's resident wave capacity. Hidden
   // slots the kernel declares but which the loader has no buffer for stay
   // null (writeHiddenKernelArguments documents the per-kind zero semantics).
   HiddenArgBufferAddresses Buffers;
@@ -1599,11 +1598,22 @@ InstrumentedKernelLoaderAndLauncher::createAndRegisterHostcallBuffer(
   auto ListenerOrErr = getOrCreateHostcallListener();
   LUTHIER_RETURN_ON_ERROR(ListenerOrErr.takeError());
 
-  // These kernels are dispatched over a single work-item, so one wave can
-  // ever have a request outstanding. Sizing the buffer for the agent's peak
-  // occupancy the way HIP does would cost tens of megabytes for nothing.
+  // Payload printf is also used by ordinary, concurrent application grids.
+  // Size the shared record buffer for the device's resident wave capacity.
+  uint32_t CUs = 0, WavesPerCU = 0;
+  const auto Core = CoreApi.getTable();
+  LUTHIER_RETURN_ON_ERROR(LUTHIER_HSA_CALL_ERROR_CHECK(
+      Core.callFunction<hsa_agent_get_info>(Agent,
+          static_cast<hsa_agent_info_t>(HSA_AMD_AGENT_INFO_COMPUTE_UNIT_COUNT), &CUs),
+      "Cannot query hostcall wave capacity"));
+  LUTHIER_RETURN_ON_ERROR(LUTHIER_HSA_CALL_ERROR_CHECK(
+      Core.callFunction<hsa_agent_get_info>(Agent,
+          static_cast<hsa_agent_info_t>(HSA_AMD_AGENT_INFO_MAX_WAVES_PER_CU), &WavesPerCU),
+      "Cannot query hostcall wave capacity"));
+  if (!CUs || !WavesPerCU || uint64_t(CUs) * WavesPerCU > UINT32_MAX)
+    return LUTHIER_MAKE_GENERIC_ERROR("Invalid hostcall wave capacity");
   auto BufferOrErr = HostcallBufferAllocation::create(
-      CoreApi.getTable(), AmdExt.getTable(), Agent, /*NumWaves=*/1);
+      CoreApi.getTable(), AmdExt.getTable(), Agent, CUs * WavesPerCU);
   LUTHIER_RETURN_ON_ERROR(BufferOrErr.takeError());
 
   (*ListenerOrErr)->addBuffer((*BufferOrErr)->getBuffer());

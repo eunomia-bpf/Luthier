@@ -24,8 +24,9 @@
 #include "luthier/HSA/LoadedCodeObject.h"
 #include "luthier/Object/AMDGCNObjectFile.h"
 #include <cstring>
+#include <sys/uio.h>
+#include <unistd.h>
 #include <llvm/Object/ELFObjectFile.h>
-#include <llvm/Support/CrashRecoveryContext.h>
 #include <llvm/Support/FormatVariadic.h>
 
 #undef DEBUG_TYPE
@@ -38,14 +39,7 @@ LoadedCodeObjectCache::LoadedCodeObjectCache(
     const rocprofiler::HsaApiTableSnapshot<::CoreApiTable> &CoreApi,
     const rocprofiler::HsaExtensionTableSnapshot<HSA_EXTENSION_AMD_LOADER>
         &VenLoader)
-    : CoreApiTableSnapshot(CoreApi), VenLoaderSnapshot(VenLoader) {
-  /// Idempotent process-wide install of SIGSEGV/SIGBUS handlers, so that
-  /// faults inside a \c CrashRecoveryContext::RunSafely region land as a
-  /// failed \c RunSafely instead of terminating the host process. Used when
-  /// reading host-side LCO storage memory that may have been unmapped by the
-  /// host application after registration with HSA.
-  llvm::CrashRecoveryContext::Enable();
-}
+    : CoreApiTableSnapshot(CoreApi), VenLoaderSnapshot(VenLoader) {}
 
 llvm::Expected<llvm::ArrayRef<uint8_t>>
 LoadedCodeObjectCache::getAssociatedCodeObject(
@@ -84,21 +78,20 @@ LoadedCodeObjectCache::getOrCreateLoadedCodeObjectEntry(
 
     /// The host application may have unmapped or freed the buffer that backs
     /// \c LCOStorageMemory at any point after it registered the code object
-    /// with HSA. \c CrashRecoveryContext catches the resulting SIGSEGV/SIGBUS
-    /// and returns false from \c RunSafely instead of crashing the process
-    /// The destination \c SmallVector is allocated outside the protected
-    /// region so its lifetime survives a \c siglongjmp out of the handler
+    /// with HSA. A kernel-mediated copy fails without taking a signal in
+    /// the embedding process or changing its signal handlers.
     auto StorageCopy = std::make_unique<llvm::SmallVector<uint8_t>>();
     StorageCopy->resize(LCOStorageMemory.size());
-    llvm::CrashRecoveryContext CRC;
-    bool Ok = CRC.RunSafely([&] {
-      std::memcpy(StorageCopy->data(), LCOStorageMemory.data(),
-                  LCOStorageMemory.size());
-    });
+    // Read without replacing the embedding application's signal handlers.
+    iovec Local{StorageCopy->data(), StorageCopy->size()};
+    iovec Remote{const_cast<uint8_t *>(LCOStorageMemory.data()),
+                 LCOStorageMemory.size()};
+    bool Ok = process_vm_readv(getpid(), &Local, 1, &Remote, 1, 0) ==
+              static_cast<ssize_t>(LCOStorageMemory.size());
     if (!Ok)
       return LUTHIER_MAKE_HSA_ERROR(llvm::formatv(
           "Storage memory for loaded code object {0:x} is no longer "
-          "accessible from the host (segfault while copying).",
+          "accessible from the host (failed to copy storage memory).",
           LCO.handle));
 
     auto ParsedElfOrErr =

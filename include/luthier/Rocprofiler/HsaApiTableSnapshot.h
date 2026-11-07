@@ -53,6 +53,10 @@ private:
   HsaApiTableType ApiTable{};
 
 public:
+  /// The caller supplies a validated, zero-extended local table copy.
+  HsaApiTableSnapshot(const HsaApiTableType &Table, const DynamicLibrary &Lib)
+      : ApiTableRegistrationCallbackProvider(Lib), ApiTable(Table) {}
+
   /// On initialization, requests a snapshot of the HSA API table to be provided
   /// by rocprofiler-sdk
   /// \note Must only be invoked during rocprofiler-sdk's configuration stage
@@ -221,6 +225,12 @@ public:
             RocprofilerLib, Err) {};
 
   ~HsaExtensionTableSnapshot() override = default;
+
+  // Capture an extension already queried by the embedding tool.
+  HsaExtensionTableSnapshot(const ExtensionApiTableType &Table,
+                            const DynamicLibrary &Lib)
+      : ApiTableRegistrationCallbackProvider<ROCPROFILER_HSA_TABLE>(Lib),
+        ExtensionTable(Table) {}
 
   /// \returns the extension table snapshot; Will report a fatal error if the
   /// snapshot has not been initialized by rocprofiler-sdk

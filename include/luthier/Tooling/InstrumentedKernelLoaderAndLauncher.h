@@ -215,9 +215,9 @@ public:
   ///
   /// The extended buffer inherits the record's hostcall and heap buffers
   /// (if either was stood up for a constructor/destructor kernel and the
-  /// instrumented kernel also declares them). The record's buffers are sized
-  /// for a single wave; a many-wave instrumented dispatch that shares them
-  /// with a ctor/dtor kernel would over-subscribe. Hidden slots the
+  /// instrumented kernel also declares them). The hostcall buffer is sized
+  /// for the agent's maximum resident wave count, including concurrent
+  /// instrumented dispatches. Hidden slots the
   /// instrumented kernel declares but which the loader has not stood up a
   /// buffer for are left zeroed — writeHiddenKernelArguments documents the
   /// per-kind zero semantics.
@@ -697,8 +697,8 @@ protected:
   /// lock.
   llvm::Expected<HostcallListener *> getOrCreateHostcallListener();
 
-  /// Allocates a hostcall buffer for \p Agent, sized for a single-wave
-  /// dispatch, and registers it with the loader's listener so packets pushed
+  /// Allocates a hostcall buffer for \p Agent, sized for its maximum resident
+  /// wave count, and registers it with the loader's listener so packets pushed
   /// onto it are answered. Caller must hold the writer lock.
   llvm::Expected<std::unique_ptr<HostcallBufferAllocation>>
   createAndRegisterHostcallBuffer(hsa_agent_t Agent);

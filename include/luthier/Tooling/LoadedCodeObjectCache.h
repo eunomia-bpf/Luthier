@@ -28,7 +28,8 @@
 #include "luthier/Rocprofiler/ApiTableWrapperInstaller.h"
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallVector.h>
-#include <llvm/Support/CrashRecoveryContext.h>
+#include <sys/uio.h>
+#include <unistd.h>
 #include <mutex>
 
 namespace luthier {
@@ -123,21 +124,16 @@ private:
 
       /// Guard the copy against the host's storage buffer being unmapped
       /// underneath us — see \c LoadedCodeObjectCache.cpp for the same pattern
-      /// On signal we skip the cache insert and let HSA's own load succeed; a
+      /// On a failed read we skip the cache insert and let HSA's load succeed; a
       /// later lookup via \c LoadedCodeObjectCache will surface the error to
       /// the caller
       auto StorageCopy = std::make_unique<llvm::SmallVector<uint8_t>>();
       StorageCopy->resize(StorageMemory.size());
-      llvm::CrashRecoveryContext CRC;
-      bool CopyOk = CRC.RunSafely([&] {
-        std::memcpy(StorageCopy->data(), StorageMemory.data(),
-                    StorageMemory.size());
-      });
+      iovec Local{StorageCopy->data(), StorageCopy->size()};
+      iovec Remote{const_cast<uint8_t *>(StorageMemory.data()), StorageMemory.size()};
+      bool CopyOk = process_vm_readv(getpid(), &Local, 1, &Remote, 1, 0) ==
+                    static_cast<ssize_t>(StorageMemory.size());
       if (!CopyOk) {
-        llvm::errs() << llvm::formatv(
-            "luthier: storage memory for loaded code object {0:x} is "
-            "unreadable; skipping cache insert.\n",
-            LCO.handle);
         return;
       }
 

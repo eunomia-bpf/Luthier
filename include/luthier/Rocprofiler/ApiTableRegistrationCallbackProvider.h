@@ -104,6 +104,11 @@ private:
   bool SuccessfullyRegistered = false;
 
 protected:
+  // For embedding in clients that already validate and capture API tables.
+  // No SDK callback, terminate handler, or finalization obligation is installed.
+  explicit ApiTableRegistrationCallbackProvider(const DynamicLibrary &Lib)
+      : RocprofilerLib(Lib), WasRegistrationInvoked(true), Callback(nullptr) {}
+
   /// The rocprofiler-sdk library used to request the registration callback.
   const DynamicLibrary &RocprofilerLib;
 
@@ -235,11 +240,15 @@ public:
       return;
 
     int RocprofilerFiniStatus = 0;
+    // Resolve by name: function-address template parameters introduce direct
+    // SDK symbol references in LLVM 24 debug info even for detached snapshots.
+    auto IsFinalized = reinterpret_cast<decltype(&rocprofiler_is_finalized)>(
+        RocprofilerLib.getSymbol<void>("rocprofiler_is_finalized"));
     /// Abort rather than exit: this runs in a destructor that may execute
     /// during program shutdown, where exit() would re-enter the exit sequence.
     LUTHIER_ABORT_ON_FATAL_ERROR(LUTHIER_ROCPROFILER_CALL_ERROR_CHECK(
-        RocprofilerLib.callFunction<rocprofiler_is_finalized>(
-            &RocprofilerFiniStatus),
+        IsFinalized ? IsFinalized(&RocprofilerFiniStatus)
+                    : ROCPROFILER_STATUS_ERROR,
         "Failed to check rocprofiler's finalization status."));
     /// Case (a): rocprofiler is finalizing or finalized — expected
     /// shutdown path, regardless of whether our callback fired.
